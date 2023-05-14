@@ -5,6 +5,15 @@ from validate_email import validate_email
 from django.contrib.auth.models import User
 
 
+from django.contrib.sites.shortcuts import get_current_site
+from django.template.loader import render_to_string
+from django.utils.http import urlsafe_base64_decode,urlsafe_base64_encode
+from django.utils.encoding import force_bytes,force_str,DjangoUnicodeDecodeError
+#utils.py file in the project folder 
+from .utils import generate_token
+from django.core.mail import EmailMessage
+from django.conf import settings
+
 ##########################################################################
                     #main classes  
 ##########################################################################
@@ -45,8 +54,41 @@ class RegistrationView(View):
         user.last_name=fullname
         user.is_active=False
         user.save()
+        #get the current domain 
+        current_site=get_current_site(request)
+        email_subject="Activate your account"
+        message=render_to_string('authentication/activate.html',
+                                 {
+                                     'user':user,
+                                     'domain':current_site.domain,
+                                     'uid':urlsafe_base64_encode(force_bytes(user.pk)),
+                                     'token':generate_token.make_token(user),
+                                     #'protocol':request.scheme
+                                 }
+                                 )
+        email_from=settings.EMAIL_HOST_USER
+        emai_message=EmailMessage(
+            email_subject,
+            message,
+            email_from,
+            [email])
+        emai_message.send()
         messages.add_message(request,messages.SUCCESS,"Account Added Succesfully ")
         return redirect('login')
+
+class ActivateAccountView(View):
+    def get(self,request,uidb64,token):
+        try:
+            uid=force_str(urlsafe_base64_decode(uidb64))
+            user=User.objects.get(pk=uid)
+        except Exception as identifier:
+            user=None
+        if user is not None and generate_token.check_token(user,token):
+            user.is_active=True
+            user.save()
+            messages.add_message(request,messages.INFO,'account activated succesfully')
+            return redirect('login')
+        return render(request, 'authenticationn/activate_failed.html',status=401)
 
 class LoginView(View):
     def get(self,request):
