@@ -13,6 +13,7 @@ from django.utils.encoding import force_bytes,force_str,DjangoUnicodeDecodeError
 from .utils import generate_token
 from django.core.mail import EmailMessage
 from django.conf import settings
+from django.contrib.auth import authenticate,login,logout
 
 ##########################################################################
                     #main classes  
@@ -93,7 +94,32 @@ class ActivateAccountView(View):
 class LoginView(View):
     def get(self,request):
         return render(request,'authentication/login.html')
+    def post(self,request):
+        context={
+            'data':request.POST,
+            'has_error':False
+        }
+        username=request.POST.get('username')
+        password=request.POST.get('password')
+        if username =='' or  password =='':
+            messages.add_message(request,messages.ERROR,'Username and Password is required')
+            context['has_error']=True
+        user=authenticate(request,username=username,password=password)
+        if not user:
+             messages.add_message(request,messages.ERROR,'Invalid credentials')
+             context['has_error']=True
+        if context['has_error']:
+            return render(request,'authentication/login.html',status=401,context=context)
+        login(request,user)
+        return redirect('home')
+
 #logout
+class LogoutView(View):
+    def post(self, request):
+        logout(request)
+        messages.add_message(request, messages.SUCCESS, 'Logout successfully')
+        return redirect('login')
+
 class ForgotPasswordView(View):
     def get(self,request):
         return render(request,'authentication/forgot_password.html')
@@ -101,7 +127,7 @@ class ForgotPasswordView(View):
 class HomeView(View):
     def get(self,request):
         return render(request,'home.html')
-    
+
 
 ##############################################################################
                     #supporting classes 
