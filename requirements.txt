@@ -1,4 +1,4 @@
-Django==4.0.5
+Django==4.2.1
 django-utils-six==2.0
 pipenv==2023.4.29
 six==1.16.0
