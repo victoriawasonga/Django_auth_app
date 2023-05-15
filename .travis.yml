@@ -1,0 +1,15 @@
+language: python
+
+python:
+    - "3.10.5"
+env:
+    - SECRET_KEY='TEST'
+services:
+   - postgresql
+install:
+    - pipenv install
+
+script:
+    -  coverage run --source='authentication' manage.py test && coverage report && coverage html
+after_success:
+    - codecov
