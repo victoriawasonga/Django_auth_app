@@ -15,6 +15,16 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 from django.contrib.auth import authenticate,login,logout
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
+
+import threading
+class EmailThread(threading.Thread):
+    def __init__(self, email_message):
+        self.email_message=email_message
+        threading.Thread(__init__(self))
+    def run(self):
+        self.email_message.send()
+
+       
 ##########################################################################
                     #main classes  
 ##########################################################################
@@ -68,12 +78,13 @@ class RegistrationView(View):
                                  }
                                  )
         email_from=settings.EMAIL_HOST_USER
-        emai_message=EmailMessage(
+        email_message=EmailMessage(
             email_subject,
             message,
             email_from,
             [email])
-        emai_message.send()
+        #emai_message.send()
+        EmailThread(email_message).start()
         messages.add_message(request,messages.SUCCESS,"Account Added Succesfully ")
         return redirect('login')
 
@@ -146,12 +157,13 @@ class RequestResetView(View):
                                     }
                                     )
             email_from=settings.EMAIL_HOST_USER
-            emai_message=EmailMessage(
+            email_message=EmailMessage(
                 email_subject,
                 message,
                 email_from,
                 [email])
-            emai_message.send()         
+            #emai_message.send() 
+            EmailThread(email_message).start()        
         messages.add_message(request,messages.ERROR,'We have sent you an email with instructuons on how to reset your password  ')
         return render(request,'authentication/request_reset_email.html')
     
@@ -162,6 +174,15 @@ class SetNewPasswordView(View):
             'uidb64':uidb64,
             'token':token
         }
+        try:
+            user_id=force_str(urlsafe_base64_decode(uidb64))
+            user=User.objects.get(pk=user_id)
+            if not PasswordResetTokenGenerator().check_token(user,token):
+                messages.info(request, "Password reset link is invalid please reset a new one")
+                return render(request,'authentication/request_reset_email.html',context,status=400)
+        except DjangoUnicodeDecodeError as identifier:
+            messages.error(request,"something went wrong")
+            return render(request,'authentication/request_reset_email.html',context)
         return render(request,'authentication/forgot_password.html',context)
     def post(self,request,uidb64,token):
         context={
@@ -182,11 +203,11 @@ class SetNewPasswordView(View):
             return render(request,'authentication/forgot_password.html',context,status=400)
         try:
             user_id=force_str(urlsafe_base64_decode(uidb64))
+            user=User.objects.get(pk=user_id)
+            user.set_password(password)
+            user.save()
         except DjangoUnicodeDecodeError as identifier:
             messages.error(request,"something went wrong")
             return render(request,'authentication/forgot_password.html',context)
-        user=User.objects.get(pk=user_id)
-        user.set_password(password)
-        user.save()
         messages.success(request,'Password reset success, you can login with new password')
         return redirect('login')
