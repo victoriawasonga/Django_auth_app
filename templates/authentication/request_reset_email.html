@@ -11,29 +11,24 @@
                     <div class="card mt-5">
                             <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Instagram_logo.svg/1024px-Instagram_logo.svg.png" class="card-img-top" alt="...">
                             <div class="card-body">
-                                <h5 class="card-title text-muted">Reset Password.</h5>
-                               
-                                {% include 'partials/_flash_messages.html'%}
-                                <form action="{% url 'set_new_password' uidb64 token%}" method="post">
-                                    {% csrf_token %}
+                                <h5 class="card-title text-muted">Provide your email to reset your password.</h5>
                                 
+                                {% include 'partials/_flash_messages.html'%}
+                                <form action="{% url 'request_reset_email' %}" method="post">
+                                    {% csrf_token %}
                                         <div class="form-group pb-4">
-                                            <input class="form-control " type="password" name="password" value="" placeholder="Password">
+                                            <input class="form-control" type="text" name="email" value="{{data.email}}" placeholder="Email">
                                         </div>
-                                        <div class="form-group pb-4">
-                                            <input class="form-control " type="password" name="password2" value="" placeholder="Confirm Password">
-                                        </div>
+                                       
+                                                                        
                                         <input type="submit" value="Submit" class="btn btn-sm btn-block btn-primary"/>
 
                                 </form>
-                                <small class="py-3">
-                                        By signing up, you agree to our Terms , Data Policy and Cookies Policy .
-                                </small>
                                 <p>
-                                    Already have an account?<a href="{%url 'login'%}">Login</a>
+                                    Dont have an account?<a href="{%url 'register'%}">Register</a>
                                 </p>
                                 <p>
-                                    Forgot Password? <a href="{% url 'request_reset_email' %}">Reset it here</a>
+                                    already have an account? <a href="{% url 'login' %}">Login Here</a>
                                     </p>
                             </div
                     </div>

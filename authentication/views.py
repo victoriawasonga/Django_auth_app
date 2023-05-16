@@ -14,7 +14,7 @@ from .utils import generate_token
 from django.core.mail import EmailMessage
 from django.conf import settings
 from django.contrib.auth import authenticate,login,logout
-
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 ##########################################################################
                     #main classes  
 ##########################################################################
@@ -119,16 +119,74 @@ class LogoutView(View):
         logout(request)
         messages.add_message(request, messages.SUCCESS, 'Logout successfully')
         return redirect('login')
-
-class ForgotPasswordView(View):
-    def get(self,request):
-        return render(request,'authentication/forgot_password.html')
 #change password 
 class HomeView(View):
     def get(self,request):
         return render(request,'home.html')
 
+class RequestResetView(View):
+    def get(self, request):
+        return render(request,'authentication/request_reset_email.html')
+    def post(self, request):
+        email=request.POST['email']
+        if not validate_email(email):
+            messages.add_message(request,messages.ERROR,'Invalid Email adress')
+            return render(request,'authentication/request_reset_email.html')
+        user=User.objects.filter(email=email)
+        if user.exists():
+            #get the current domain 
+            current_site=get_current_site(request)
+            email_subject="Reset your password"
+            message=render_to_string('authentication/reset_user_password.html',
+                                    {
+                                        'domain':current_site.domain,
+                                        'uid':urlsafe_base64_encode(force_bytes(user[0].pk)),
+                                        'token':PasswordResetTokenGenerator().make_token(user[0]),
+                                        #'protocol':request.scheme
+                                    }
+                                    )
+            email_from=settings.EMAIL_HOST_USER
+            emai_message=EmailMessage(
+                email_subject,
+                message,
+                email_from,
+                [email])
+            emai_message.send()         
+        messages.add_message(request,messages.ERROR,'We have sent you an email with instructuons on how to reset your password  ')
+        return render(request,'authentication/request_reset_email.html')
+    
 
-##############################################################################
-                    #supporting classes 
-##############################################################################
+class SetNewPasswordView(View):
+    def get(self,request,uidb64,token):
+        context={
+            'uidb64':uidb64,
+            'token':token
+        }
+        return render(request,'authentication/forgot_password.html',context)
+    def post(self,request,uidb64,token):
+        context={
+            'uidb64':uidb64,
+            'token':token,
+            'has_error':False
+        }
+        data=request.POST
+        password=data.get('password')
+        password2=data.get('password2')
+        if len(password)<6:
+            messages.add_message(request,messages.ERROR,"Password has to have a mimimum leght of 6 characters ")
+            context['has_error']=True
+        if password != password2:
+            messages.add_message(request,messages.ERROR,"Passwords do not match")
+            context['has_error']=True
+        if context['has_error']:
+            return render(request,'authentication/forgot_password.html',context,status=400)
+        try:
+            user_id=force_str(urlsafe_base64_decode(uidb64))
+        except DjangoUnicodeDecodeError as identifier:
+            messages.error(request,"something went wrong")
+            return render(request,'authentication/forgot_password.html',context)
+        user=User.objects.get(pk=user_id)
+        user.set_password(password)
+        user.save()
+        messages.success(request,'Password reset success, you can login with new password')
+        return redirect('login')
